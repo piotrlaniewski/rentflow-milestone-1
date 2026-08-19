@@ -11,6 +11,7 @@ use App\Rental\Domain\Reservation\ReservationPeriod;
 use App\Rental\Domain\Reservation\ReservationPricing;
 use App\Rental\Domain\Reservation\ReservationRepository;
 use App\Rental\Domain\Reservation\VehicleAvailability;
+use App\Shared\Domain\Clock\Clock;
 use App\Shared\Domain\CustomerId;
 use App\Shared\Domain\VehicleId;
 
@@ -20,39 +21,26 @@ final readonly class CreateReservationHandler
         private ReservationRepository $reservations,
         private VehicleAvailability $availability,
         private ReservationPricing $pricing,
+        private Clock $clock,
     ) {
     }
 
     public function __invoke(CreateReservation $command): void
     {
-        $vehicleId = VehicleId::fromString(
-            $command->vehicleId
-        );
-
-        $period = new ReservationPeriod(
-            from: $command->from,
-            to: $command->to,
-        );
+        $vehicleId = VehicleId::fromString($command->vehicleId);
+        $period = new ReservationPeriod($command->from, $command->to);
 
         if (!$this->availability->isAvailable($vehicleId, $period)) {
-            throw VehicleNotAvailable::create(
-                $vehicleId->toString()
-            );
+            throw VehicleNotAvailable::create($vehicleId->toString());
         }
-
-        $price = $this->pricing->calculate(
-            $vehicleId,
-            $period,
-        );
 
         $reservation = Reservation::create(
             id: ReservationId::generate(),
-            customerId: CustomerId::fromString(
-                $command->customerId
-            ),
+            customerId: CustomerId::fromString($command->customerId),
             vehicleId: $vehicleId,
             period: $period,
-            price: $price,
+            price: $this->pricing->calculate($vehicleId, $period),
+            occurredAt: $this->clock->now(),
         );
 
         $this->reservations->save($reservation);

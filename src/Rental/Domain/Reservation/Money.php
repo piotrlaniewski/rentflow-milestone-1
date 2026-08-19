@@ -8,24 +8,18 @@ final readonly class Money
 {
     public function __construct(
         private int $amount,
-        private string $currency,
+        private Currency $currency,
     ) {
         if ($amount < 0) {
             throw new \InvalidArgumentException(
                 'Money amount cannot be negative.'
             );
         }
-
-        if (strlen($currency) !== 3) {
-            throw new \InvalidArgumentException(
-                'Currency must use ISO 4217 format.'
-            );
-        }
     }
 
     public static function pln(int $amount): self
     {
-        return new self($amount, 'PLN');
+        return new self($amount, Currency::pln());
     }
 
     public function amount(): int
@@ -33,7 +27,7 @@ final readonly class Money
         return $this->amount;
     }
 
-    public function currency(): string
+    public function currency(): Currency
     {
         return $this->currency;
     }
@@ -41,6 +35,6 @@ final readonly class Money
     public function equals(self $other): bool
     {
         return $this->amount === $other->amount
-            && $this->currency === $other->currency;
+            && $this->currency->equals($other->currency);
     }
 }
