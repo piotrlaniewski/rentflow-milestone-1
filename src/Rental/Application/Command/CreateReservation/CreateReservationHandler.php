@@ -35,7 +35,7 @@ final readonly class CreateReservationHandler
         }
 
         $reservation = Reservation::create(
-            id: ReservationId::generate(),
+            id: ReservationId::fromString($command->reservationId),
             customerId: CustomerId::fromString($command->customerId),
             vehicleId: $vehicleId,
             period: $period,

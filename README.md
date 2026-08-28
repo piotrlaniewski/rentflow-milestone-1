@@ -1,108 +1,100 @@
-# RentFlow — Milestone 2
+# RentFlow
 
-Portfolio project demonstrating Domain-Driven Design, CQRS and framework-independent application logic in PHP 8.4.
+Portfolio rental API demonstrating PHP 8.4, Symfony 7.4 LTS, tactical DDD,
+CQRS, PostgreSQL consistency constraints and a transactional outbox prepared
+for Kafka publishing.
 
-## Added in Milestone 2
+## Architecture
 
-- `Clock` abstraction and `SystemClock`
-- deterministic timestamps in domain events
-- `Currency` Value Object
-- `Money` using `Currency` instead of a raw string
-- `ConfirmReservation` command + handler
-- `CancelReservation` command + handler
-- reusable test doubles: `FrozenClock`, in-memory repository, pricing and availability fakes
-- `ReservationMother`
-- expanded domain and application tests
+RentFlow is a modular monolith. The `Rental` bounded context is split into:
 
-## Domain-Driven Design
+- `Domain` — aggregate, value objects, domain events and ports;
+- `Application` — commands, queries and use-case handlers;
+- `Infrastructure` — PostgreSQL adapters, pricing and the read model;
+- `UI` — HTTP controllers.
 
-- `Reservation` Aggregate Root
-- Value Objects: `ReservationId`, `ReservationPeriod`, `Money`, `Currency`, `CustomerId`, `VehicleId`
-- domain invariants and domain-specific exceptions
-- Domain Events
-- repository abstraction
-- domain ports: `VehicleAvailability`, `ReservationPricing`
-
-## CQRS write side
-
-Commands:
-
-- `CreateReservation`
-- `ConfirmReservation`
-- `CancelReservation`
-
-The write side is independent from Symfony, Doctrine and the database.
-
-## Deterministic time
-
-The aggregate no longer creates the current time by itself. Application handlers use `Clock` and pass the concrete timestamp into domain operations.
-
-Production:
+The domain and application command handlers do not depend on Symfony or
+Doctrine. Symfony Messenger provides separate `command.bus` and `query.bus`
+instances at the composition-root level.
 
 ```text
-SystemClock -> Clock
+HTTP -> command.bus -> application handler -> aggregate
+                                      |          |
+                                      +-> reservation + outbox (one transaction)
+
+HTTP -> query.bus -> DBAL read handler -> JSON view
 ```
 
-Tests:
+The PostgreSQL exclusion constraint is the final consistency guard against two
+active reservations for the same vehicle and overlapping time periods. The
+availability query improves the user-facing error path, but correctness does not
+depend on a race-prone check-before-write sequence.
 
-```text
-FrozenClock -> Clock
-```
+## Run locally
 
-This makes domain-event timestamps deterministic and easy to test.
+Requirements:
 
-## Currency
+- Docker Desktop with Linux containers;
+- Docker Compose.
 
-`Money` no longer stores a raw currency string:
-
-```php
-new Money(
-    12_345,
-    Currency::fromCode('EUR'),
-);
-```
-
-`Currency` validates an ISO-4217-style code format: exactly three uppercase ASCII letters. It does not claim that every three-letter combination is an officially assigned ISO 4217 currency.
-
-## Requirements
-
-- PHP 8.4+
-- Composer
-
-## Install
+Start the API and run migrations:
 
 ```bash
-composer install
+cp .env.example .env
+# Set APP_SECRET and POSTGRES_PASSWORD in .env before starting containers.
+docker compose up --build -d
 ```
 
-## Tests
+The API is available at `http://localhost:8080`; its health endpoint is
+`GET /health`.
+
+Run tests:
 
 ```bash
-composer test
+docker compose exec php composer test
 ```
 
-## Dependency direction
+Stop the containers without deleting PostgreSQL data:
+
+```bash
+docker compose down
+```
+
+## API example
+
+Create a reservation:
+
+```bash
+curl -i http://localhost:8080/api/reservations \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "customerId": "customer-1",
+    "vehicleId": "vehicle-1",
+    "from": "2026-09-01T10:00:00+00:00",
+    "to": "2026-09-05T10:00:00+00:00"
+  }'
+```
+
+Use the returned `id` with:
 
 ```text
-Infrastructure
-      ↓
-Application
-      ↓
-Domain
+GET  /api/reservations/{id}
+POST /api/reservations/{id}/confirm
+POST /api/reservations/{id}/cancel
 ```
 
-The Domain layer does not depend on Symfony, Doctrine, RabbitMQ or other infrastructure.
+Money is represented in minor units, so `30000 PLN` means `300.00 PLN`.
 
-## Next milestone
+## Transactional outbox
 
-Milestone 3 will add Symfony and persistence:
+Every aggregate save and its domain-event serialization happen inside one
+PostgreSQL transaction. Unpublished messages are stored in `outbox_message`.
+The next milestone will add a Kafka publisher worker, idempotent consumers,
+retry policy and a dead-letter topic without changing the domain model.
 
-- Symfony 7
-- Dependency Injection
-- Doctrine ORM
-- PostgreSQL
-- `DoctrineReservationRepository`
-- migrations
-- HTTP API endpoints
-- integration tests
-- CQRS read side via Doctrine DBAL
+## Test strategy
+
+- domain unit tests verify invariants and state transitions;
+- application unit tests use in-memory ports and a frozen clock;
+- persistence and HTTP integration tests are the next addition now that the
+  executable Symfony boundary exists.

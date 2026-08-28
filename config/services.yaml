@@ -1,0 +1,42 @@
+parameters:
+  rentflow.daily_rate_pln: 30000
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    bind:
+      $commandBus: '@command.bus'
+      $queryBus: '@query.bus'
+
+  App\:
+    resource: '../src/'
+    exclude:
+      - '../src/Kernel.php'
+      - '../src/Rental/Domain/'
+
+  App\Rental\Application\Command\:
+    resource: '../src/Rental/Application/Command/'
+    tags:
+      - { name: messenger.message_handler, bus: command.bus }
+
+  App\Rental\Infrastructure\Persistence\GetReservationHandler:
+    tags:
+      - { name: messenger.message_handler, bus: query.bus }
+
+  App\Rental\Domain\Reservation\ReservationRepository:
+    alias: App\Rental\Infrastructure\Persistence\DbalReservationRepository
+
+  App\Rental\Domain\Reservation\VehicleAvailability:
+    alias: App\Rental\Infrastructure\Persistence\DbalVehicleAvailability
+
+  App\Rental\Domain\Reservation\ReservationPricing:
+    alias: App\Rental\Infrastructure\Pricing\DailyRateReservationPricing
+
+  App\Shared\Domain\Clock\Clock:
+    alias: App\Shared\Infrastructure\Clock\SystemClock
+
+  App\Rental\Infrastructure\Pricing\DailyRateReservationPricing:
+    arguments:
+      $dailyRateInMinorUnits: '%rentflow.daily_rate_pln%'
+

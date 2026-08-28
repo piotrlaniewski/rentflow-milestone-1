@@ -29,6 +29,7 @@ final class CreateReservationHandlerTest extends TestCase
         );
 
         $handler(new CreateReservation(
+            reservationId: 'reservation-1',
             customerId: 'customer-1',
             vehicleId: 'vehicle-1',
             from: new \DateTimeImmutable('2026-09-01'),
@@ -54,6 +55,7 @@ final class CreateReservationHandlerTest extends TestCase
 
         $this->expectException(VehicleNotAvailable::class);
         $handler(new CreateReservation(
+            reservationId: 'reservation-1',
             customerId: 'customer-1',
             vehicleId: 'vehicle-1',
             from: new \DateTimeImmutable('2026-09-01'),

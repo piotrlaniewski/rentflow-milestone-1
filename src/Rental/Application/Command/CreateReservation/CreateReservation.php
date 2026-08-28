@@ -7,6 +7,7 @@ namespace App\Rental\Application\Command\CreateReservation;
 final readonly class CreateReservation
 {
     public function __construct(
+        public string $reservationId,
         public string $customerId,
         public string $vehicleId,
         public \DateTimeImmutable $from,
