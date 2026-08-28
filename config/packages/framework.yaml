@@ -1,0 +1,18 @@
+framework:
+  secret: '%env(APP_SECRET)%'
+  handle_all_throwables: true
+  messenger:
+    default_bus: command.bus
+    buses:
+      command.bus: ~
+      query.bus: ~
+  router:
+    utf8: true
+  session: false
+  php_errors:
+    log: true
+
+when@test:
+  framework:
+    test: true
+

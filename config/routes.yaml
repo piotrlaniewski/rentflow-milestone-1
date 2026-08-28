@@ -1,0 +1,10 @@
+controllers:
+  resource:
+    path: ../src/Rental/UI/Http/
+    namespace: App\Rental\UI\Http
+  type: attribute
+
+health:
+  resource: ../src/Shared/Infrastructure/Http/HealthController.php
+  type: attribute
+

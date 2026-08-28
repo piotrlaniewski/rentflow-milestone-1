@@ -56,6 +56,17 @@ final class Reservation
         return $reservation;
     }
 
+    public static function reconstitute(
+        ReservationId $id,
+        CustomerId $customerId,
+        VehicleId $vehicleId,
+        ReservationPeriod $period,
+        ReservationStatus $status,
+        Money $price,
+    ): self {
+        return new self($id, $customerId, $vehicleId, $period, $status, $price);
+    }
+
     public function confirm(\DateTimeImmutable $occurredAt): void
     {
         if ($this->status !== ReservationStatus::Pending) {
