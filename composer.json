@@ -1,11 +1,13 @@
 {
   "name": "portfolio/rentflow",
   "description": "DDD/CQRS portfolio project in PHP",
+  "license": "MIT",
   "type": "project",
   "require": {
     "php": "^8.4",
     "ext-ctype": "*",
     "ext-pdo": "*",
+    "ext-rdkafka": "*",
     "doctrine/dbal": "^4.4",
     "doctrine/doctrine-bundle": "^3.1",
     "doctrine/doctrine-migrations-bundle": "^3.4",
@@ -32,7 +34,8 @@
   },
   "scripts": {
     "auto-scripts": {
-      "cache:clear": "symfony-cmd"
+      "cache:clear": "symfony-cmd",
+      "assets:install %PUBLIC_DIR%": "symfony-cmd"
     },
     "test": "phpunit",
     "post-install-cmd": ["@auto-scripts"],

@@ -1,6 +1,7 @@
 .git
 .idea
+.env
 .phpunit.cache
+.tools
 var
 vendor
-
