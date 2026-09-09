@@ -1,8 +1,8 @@
 # RentFlow
 
 Portfolio rental API demonstrating PHP 8.4, Symfony 7.4 LTS, tactical DDD,
-CQRS, PostgreSQL consistency constraints and a transactional outbox prepared
-for Kafka publishing.
+CQRS, PostgreSQL consistency constraints and transactional outbox publishing
+to Apache Kafka.
 
 ## Architecture
 
@@ -21,6 +21,8 @@ instances at the composition-root level.
 HTTP -> command.bus -> application handler -> aggregate
                                       |          |
                                       +-> reservation + outbox (one transaction)
+                                                      |
+                                      publisher -> Kafka topic
 
 HTTP -> query.bus -> DBAL read handler -> JSON view
 ```
@@ -37,7 +39,7 @@ Requirements:
 - Docker Desktop with Linux containers;
 - Docker Compose.
 
-Start the API and run migrations:
+Start the API, database, Kafka broker, migrations and outbox publisher:
 
 ```bash
 cp .env.example .env
@@ -52,6 +54,18 @@ Run tests:
 
 ```bash
 docker compose exec php composer test
+```
+
+Inspect the application and publisher logs:
+
+```bash
+docker compose logs -f php outbox-publisher
+```
+
+Publish one batch manually instead of running the long-lived publisher:
+
+```bash
+docker compose run --rm outbox-publisher php bin/console app:outbox:publish --limit=50
 ```
 
 Stop the containers without deleting PostgreSQL data:
@@ -89,12 +103,19 @@ Money is represented in minor units, so `30000 PLN` means `300.00 PLN`.
 
 Every aggregate save and its domain-event serialization happen inside one
 PostgreSQL transaction. Unpublished messages are stored in `outbox_message`.
-The next milestone will add a Kafka publisher worker, idempotent consumers,
-retry policy and a dead-letter topic without changing the domain model.
+A dedicated worker claims rows in batches using `FOR UPDATE SKIP LOCKED`, then
+publishes JSON event envelopes to `rentflow.reservation-events.v1`. Aggregate
+IDs are Kafka message keys, which preserves per-reservation ordering.
+
+Claims expire after five minutes, so an interrupted worker does not strand a
+message. Failed deliveries are retried up to ten times; terminal failures keep
+their diagnostic details in the outbox for inspection. Delivery is at least
+once, therefore future consumers must process event IDs idempotently.
 
 ## Test strategy
 
 - domain unit tests verify invariants and state transitions;
 - application unit tests use in-memory ports and a frozen clock;
+- outbox publisher unit tests cover success, retry and terminal failure paths;
 - persistence and HTTP integration tests are the next addition now that the
   executable Symfony boundary exists.

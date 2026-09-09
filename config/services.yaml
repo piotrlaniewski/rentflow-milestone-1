@@ -1,5 +1,8 @@
 parameters:
+  env(KAFKA_BOOTSTRAP_SERVERS): 'kafka:9092'
   rentflow.daily_rate_pln: 30000
+  rentflow.kafka.topic: 'rentflow.reservation-events.v1'
+  rentflow.kafka.flush_timeout_ms: 10000
 
 services:
   _defaults:
@@ -16,7 +19,7 @@ services:
       - '../src/Rental/Domain/'
 
   App\Rental\Application\Command\:
-    resource: '../src/Rental/Application/Command/'
+    resource: '../src/Rental/Application/Command/**/*Handler.php'
     tags:
       - { name: messenger.message_handler, bus: command.bus }
 
@@ -36,7 +39,18 @@ services:
   App\Shared\Domain\Clock\Clock:
     alias: App\Shared\Infrastructure\Clock\SystemClock
 
+  App\Shared\Application\Messaging\OutboxStore:
+    alias: App\Shared\Infrastructure\Messaging\DbalOutboxStore
+
+  App\Shared\Application\Messaging\IntegrationEventPublisher:
+    alias: App\Shared\Infrastructure\Messaging\KafkaIntegrationEventPublisher
+
+  App\Shared\Infrastructure\Messaging\KafkaIntegrationEventPublisher:
+    arguments:
+      $bootstrapServers: '%env(KAFKA_BOOTSTRAP_SERVERS)%'
+      $topic: '%rentflow.kafka.topic%'
+      $flushTimeoutMilliseconds: '%rentflow.kafka.flush_timeout_ms%'
+
   App\Rental\Infrastructure\Pricing\DailyRateReservationPricing:
     arguments:
       $dailyRateInMinorUnits: '%rentflow.daily_rate_pln%'
-
